@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | LifeRoute Emergency CAD Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased font-sans min-h-screen flex flex-col justify-between">
+  <header class="relative z-10 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg">
+          <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <span class="text-xl font-bold text-white">LifeRoute</span>
+          <p class="text-xs text-slate-400">TECHFORGE 1.0 · ECE LIET · Challenge 03</p>
+        </div>
+      </div>
+      <a href="index.html" class="px-3.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono text-slate-300">Direct CAD Console ➔</a>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 py-12 flex-1 flex items-center">
+    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div class="lg:col-span-6 space-y-4">
+        <h1 class="text-4xl font-extrabold text-white">Not the nearest hospital.<br /><span class="text-cyan-400">The right one.</span></h1>
+        <p class="text-sm text-slate-300">LifeRoute synthesizes 5 real-time data streams into provably optimal dispatch decisions in &lt;10 ms.</p>
+      </div>
+      <div class="lg:col-span-6">
+        <div class="p-8 rounded-3xl bg-slate-900 border border-slate-700/80 shadow-2xl space-y-5">
+          <h2 class="text-2xl font-bold text-white">Operator Authentication</h2>
+          <form onsubmit="event.preventDefault(); localStorage.setItem('liferoute_operator', document.getElementById('loginOperatorId').value); window.location.href='index.html#dashboard';" class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Operator Call Sign</label>
+              <input type="text" id="loginOperatorId" required value="EVALUATOR-JUDGE" class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Access Token</label>
+              <input type="password" required value="techforge-evaluator-2026" class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white outline-none" />
+            </div>
+            <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-white text-sm shadow-xl">Enter CAD Command Center ➔</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
