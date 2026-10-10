@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LifeRoute | Intelligent Emergency Hospital & Ambulance Coordination</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            critical: '#ef4444',
+            delayed: '#f59e0b',
+            minor: '#10b981',
+            ambulance: '#3b82f6'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased font-sans selection:bg-blue-600 selection:text-white">
+
+  <!-- DISPATCHER AUTHENTICATION MODAL -->
+  <div id="loginModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md transition-all duration-300">
+    <div class="relative w-full max-w-lg mx-4 p-6 sm:p-8 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl space-y-5">
+      <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-mono p-1 rounded-lg hover:bg-slate-800">✕</button>
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-500"></div>
+      
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              LifeRoute <span class="text-xs px-2 py-0.5 rounded font-mono bg-blue-900/60 text-blue-300 border border-blue-700/50">CAD v2.4</span>
+            </h2>
+            <p class="text-xs text-slate-400 font-mono">112 Emergency Dispatch Gateway</p>
+          </div>
+        </div>
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping mr-1.5"></span> ONLINE
+        </span>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-mono uppercase text-slate-400 tracking-wider">Select Pre-Authorized Role</label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs font-mono">
+          <button type="button" onclick="selectRolePreset('dispatcher')" id="roleBtn-dispatcher" class="p-2 rounded-lg bg-blue-950/80 border border-blue-600 text-blue-300 text-center font-bold">🚑 Dispatcher</button>
+          <button type="button" onclick="selectRolePreset('director')" id="roleBtn-director" class="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-center hover:text-white">🩺 ER Director</button>
+          <button type="button" onclick="selectRolePreset('paramedic')" id="roleBtn-paramedic" class="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-center hover:text-white">🚨 Paramedic</button>
+          <button type="button" onclick="selectRolePreset('admin')" id="roleBtn-admin" class="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-center hover:text-white">🛡️ Sys Admin</button>
+        </div>
+      </div>
+
+      <form id="authModalForm" onsubmit="event.preventDefault(); handleModalLogin();" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Operator ID</label>
+          <input type="text" id="modalOperatorId" value="DISPATCHER-8492" required class="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white font-mono outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Passcode</label>
+          <input type="password" id="modalPasscode" value="techforge-alpha" required class="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white font-mono outline-none" />
+        </div>
+        <div class="pt-2 space-y-2">
+          <button type="submit" class="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-white text-sm shadow-lg transition-all flex items-center justify-center gap-2">
+            <span>Enter CAD Command Matrix</span>
+          </button>
+          <button type="button" onclick="bypassLoginQuick()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-mono transition-all">
+            <span>⚡ 1-Click Demo Bypass (Evaluator Mode)</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- STICKY TOP NAVIGATION -->
+  <header class="sticky top-0 z-40 w-full bg-slate-950/90 backdrop-blur-md border-b border-slate-800/90 px-4 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <a href="#hero" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg font-bold tracking-tight text-white">LifeRoute</span>
+            <span class="hidden sm:inline-block text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-blue-900/60 border border-blue-700/60 text-blue-300">CAD v2.4</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-medium hidden md:block">Not the nearest hospital. The right one.</p>
+        </div>
+      </a>
+
+      <nav class="hidden lg:flex items-center gap-6 text-xs font-mono uppercase tracking-wider text-slate-300">
+        <a href="#hero" class="hover:text-blue-400">Hero</a>
+        <a href="#problem" class="hover:text-blue-400">The Problem</a>
+        <a href="#dashboard" class="hover:text-blue-400 text-blue-400 font-bold">Live Dashboard</a>
+        <a href="#mci" class="hover:text-rose-400 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+          <span>MCI Mode</span>
+        </a>
+        <a href="#results" class="hover:text-blue-400">Results</a>
+        <a href="#how-it-works" class="hover:text-blue-400">How It Works</a>
+        <a href="#impact" class="hover:text-blue-400">Impact & Scale</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <!-- Live SQLite Backend Database Status Badge -->
+        <div id="backendDbBadge" class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="backendDbText">DB: SQLite Online (8080)</span>
+        </div>
+
+        <button id="soundToggleBtn" onclick="toggleAudioAlerts()" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs">
+          <span id="soundIcon">🔊</span>
+        </button>
+        <a href="login.html" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
+          <span>🔐 Portal</span>
+        </a>
+        <button onclick="openLoginModal()" class="px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700/60 text-xs font-mono text-blue-300 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span id="topOperatorLabel">OP-8492</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECTION 1: HERO -->
+  <section id="hero" class="relative overflow-hidden pt-12 pb-20 border-b border-slate-800/80 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-12">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div class="lg:col-span-6 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/80 border border-blue-700/60 text-blue-400 text-xs font-mono">
+            <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+            INTELLIGENT EMERGENCY HOSPITAL & AMBULANCE COORDINATION
+          </div>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]">
+            Not the nearest hospital.<br />
+            <span class="bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">The right one.</span>
+          </h1>
+          <p class="text-base sm:text-lg text-slate-300 leading-relaxed">
+            A decision-support system that dispatches ambulances and selects destination hospitals using severity, capability, capacity and travel time.
+          </p>
+          <div class="flex flex-wrap items-center gap-4 pt-2">
+            <a href="#dashboard" class="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold text-white text-sm shadow-xl flex items-center gap-2">
+              <span>Open Live Dashboard</span>
+            </a>
+            <button onclick="triggerMCIMode(true)" class="px-5 py-3.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/50 font-semibold text-rose-300 text-sm flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              <span>Run MCI Demo</span>
+            </button>
+          </div>
+          <div class="pt-4 flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
+            <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+              <span>DATASET SEED:</span>
+              <input type="number" id="datasetSeedHeroInput" value="42" class="w-16 bg-slate-950 border border-slate-700 px-1.5 py-0.5 rounded text-white text-center font-bold" onchange="updateSeed(this.value)" />
+              <button onclick="reseedRandom()" class="text-blue-400 hover:text-white">🎲</button>
+            </div>
+            <button onclick="downloadDatasetJSON()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 flex items-center gap-1.5">
+              <span>Download Mock JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Animated SVG Illustration -->
+        <div class="lg:col-span-6">
+          <div class="relative p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono">
+              <span class="text-rose-400 font-bold">Algorithmic Routing Simulation</span>
+              <span class="text-emerald-400">Zero Secondary Transfers</span>
+            </div>
+            <div class="relative w-full h-72 bg-slate-950 rounded-xl border border-slate-800/80 p-3 flex items-center justify-center">
+              <svg viewBox="0 0 500 300" class="w-full h-full">
+                <!-- Incident Origin -->
+                <g transform="translate(70, 150)">
+                  <circle r="20" fill="#ef4444" fill-opacity="0.2" class="animate-ping" />
+                  <circle r="15" fill="#ef4444" stroke="#ffffff" stroke-width="2" />
+                  <text y="4" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="bold">INC</text>
+                  <text y="30" text-anchor="middle" fill="#f87171" font-size="10" font-family="monospace">Acute STEMI (Sev 5)</text>
+                  <text y="42" text-anchor="middle" fill="#94a3b8" font-size="8.5" font-family="monospace">Needs: [Cath Lab, CT]</text>
+                </g>
+                <!-- Route 1 (Crossed Out) -->
+                <path d="M 86 140 Q 220 50 380 75" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="6 4" stroke-opacity="0.7" />
+                <!-- Route 2 (Highlighted) -->
+                <path d="M 86 160 Q 220 250 380 225" fill="none" stroke="#06b6d4" stroke-width="4" stroke-dasharray="8 4" class="route-polyline" />
+                <!-- Hospital A (Nearest - Crossed out) -->
+                <g transform="translate(410, 75)">
+                  <circle r="18" fill="#1e293b" stroke="#ef4444" stroke-width="2" />
+                  <text y="4" text-anchor="middle" fill="#f87171" font-size="10" font-weight="bold">H-A</text>
+                  <circle r="12" fill="#ef4444" fill-opacity="0.9" />
+                  <text y="4" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">✕</text>
+                  <text x="25" y="-2" text-anchor="start" fill="#f87171" font-size="10" font-weight="bold">Hospital A (4m)</text>
+                  <text x="25" y="10" text-anchor="start" fill="#f87171" font-size="9" font-family="monospace">❌ NO CATH LAB</text>
+                </g>
+                <!-- Hospital C (Right Hospital) -->
+                <g transform="translate(410, 225)">
+                  <circle r="22" fill="#059669" fill-opacity="0.3" class="animate-ping" />
+                  <circle r="18" fill="#065f46" stroke="#34d399" stroke-width="2.5" />
+                  <text y="4" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="bold">H-C</text>
+                  <circle r="9" cx="12" cy="-12" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+                  <text x="12" y="-9" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="bold">✓</text>
+                  <text x="25" y="-2" text-anchor="start" fill="#34d399" font-size="10" font-weight="bold">Hospital C (9m)</text>
+                  <text x="25" y="10" text-anchor="start" fill="#6ee7b7" font-size="9" font-family="monospace">✅ CATH LAB READY</text>
+                </g>
+              </svg>
+            </div>
+            <div class="flex items-center justify-between text-xs font-mono text-slate-400">
+              <span class="text-rose-400">❌ Baseline: Sent to H-A (4m) without Cath Lab</span>
+              <span class="text-emerald-400">✅ LifeRoute: Dispatched to H-C (9m) directly</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: THE PROBLEM -->
+  <section id="problem" class="py-16 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-10">
+      <div class="text-center max-w-3xl mx-auto space-y-3">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white">The Emergency Routing Crisis</h2>
+        <p class="text-slate-400 text-sm">Traditional dispatch algorithms rely solely on GPS proximity, causing preventable deaths.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+          <div class="text-2xl">🏥</div>
+          <h3 class="text-lg font-bold text-white">Nearest is not best</h3>
+          <p class="text-xs text-slate-300">Taking severe stroke or STEMI cardiac patients to the closest clinic without a Cath Lab or CT scanner causes fatal secondary transfers (+45 min delay).</p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+          <div class="text-2xl">🛏️</div>
+          <h3 class="text-lg font-bold text-white">Beds change while you drive</h3>
+          <p class="text-xs text-slate-300">ER beds fluctuate constantly. During transit, walk-in admissions can saturate capacity, creating ambulance offload ramping delays outside emergency bays.</p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+          <div class="text-2xl">💥</div>
+          <h3 class="text-lg font-bold text-white">Mass-casualty events overwhelm one ER</h3>
+          <p class="text-xs text-slate-300">Disasters funnel 80% of casualties to the single closest hospital, causing acute collapse while nearby tertiary trauma facilities sit under-utilized.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: LIVE DISPATCHER DASHBOARD -->
+  <section id="dashboard" class="py-12 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-[1600px] mx-auto px-4 lg:px-6 space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h2 class="text-2xl font-bold text-white">Live Dispatcher Command Matrix</h2>
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">Latency: <b id="replanLatencyText">3 ms</b></span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div id="replanAlertBadge" class="hidden px-3 py-1 rounded-lg bg-amber-950 text-amber-300 border border-amber-500 text-xs font-mono font-bold animate-pulse">⚡ Rerouted: B to D</div>
+          <div class="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-600 text-emerald-300 font-mono text-xs">Capacity Violations: <b>0</b></div>
+        </div>
+      </div>
+
+      <!-- Top Control Bar -->
+      <div class="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btnNextTick" onclick="stepTick()" class="py-2 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow flex items-center gap-2">
+            <span>Next Tick</span>
+            <span id="tickBadge" class="text-[10px] font-mono bg-blue-900 px-1.5 py-0.2 rounded">#1</span>
+          </button>
+          <button id="btnAutoPlay" onclick="toggleAutoPlay()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-200 flex items-center gap-2">
+            <span id="autoPlayDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span id="autoPlayText">Auto-play: OFF</span>
+          </button>
+          <button id="btnCloseRoad" onclick="toggleRoadClosure()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300 flex items-center gap-2">
+            <span id="roadStatusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="roadBtnText">Close Road (Flyover)</span>
+          </button>
+          <button id="btnDiversion" onclick="toggleHospitalDiversion()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300 flex items-center gap-2">
+            <span id="diversionDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="diversionBtnText">Hospital B Diversion</span>
+          </button>
+          <button id="btnMCI" onclick="triggerMCIMode(true)" class="py-2 px-3 rounded-xl bg-rose-950/70 hover:bg-rose-900/70 border border-rose-700 text-xs font-mono text-rose-300 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+            <span>Trigger MCI</span>
+          </button>
+        </div>
+        <button onclick="resetSimulation()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300">↺ Reset</button>
+      </div>
+
+      <!-- Main Grid: 65% Map / 35% Side Panels -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div class="lg:col-span-8 space-y-3">
+          <div id="liveCallHudBanner" class="p-3 rounded-xl bg-slate-900 border border-rose-500/70 flex items-center justify-between font-mono text-xs">
+            <div class="flex items-center gap-3">
+              <span class="text-base animate-pulse">🚨</span>
+              <div>
+                <span id="hudCallSev" class="px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 font-bold uppercase">ESI-5 CRITICAL</span>
+                <span id="hudCallTitle" class="font-bold text-white ml-2">Call #1: Acute STEMI</span>
+                <span id="hudCallNeeds" class="text-cyan-400 ml-2">[Cath Lab, CT]</span>
+              </div>
+            </div>
+            <button onclick="switchTab('ranking')" class="px-2.5 py-1 rounded bg-blue-600 text-xs text-white">Ranking ➔</button>
+          </div>
+          <div class="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 h-[580px]">
+            <div id="map" class="w-full h-full"></div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col h-[645px]">
+          <div class="flex items-center border-b border-slate-800 bg-slate-950 text-xs font-mono">
+            <button onclick="switchTab('incidents')" id="tabBtn-incidents" class="tab-btn flex-1 py-3 text-center font-bold active-tab">Incidents (<span id="activeIncCount">1</span>)</button>
+            <button onclick="switchTab('ranking')" id="tabBtn-ranking" class="tab-btn flex-1 py-3 text-center font-bold">Ranking</button>
+            <button onclick="switchTab('hospitals')" id="tabBtn-hospitals" class="tab-btn flex-1 py-3 text-center font-bold">Hospitals</button>
+            <button onclick="switchTab('audit')" id="tabBtn-audit" class="tab-btn flex-1 py-3 text-center font-bold">Audit Log</button>
+          </div>
+          <div class="p-4 flex-1 overflow-y-auto space-y-3">
+            <div id="tabContent-incidents" class="space-y-2.5"><div id="incidentsListContainer" class="space-y-2"></div></div>
+            <div id="tabContent-ranking" class="hidden space-y-3">
+              <div id="topRankedHospitalsContainer" class="space-y-2"></div>
+              <div id="rejectedHospitalsContainer" class="space-y-1.5 pt-2 border-t border-slate-800"></div>
+            </div>
+            <div id="tabContent-hospitals" class="hidden space-y-2"><div id="hospitalsTableContainer" class="space-y-2"></div></div>
+            <div id="tabContent-audit" class="hidden space-y-2"><div id="auditLogContainer" class="space-y-1.5 font-mono text-xs"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: MASS-CASUALTY MODE -->
+  <section id="mci" class="py-16 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-10">
+      <div id="mciBannerContainer" class="p-6 rounded-2xl bg-gradient-to-r from-rose-950/80 via-slate-900 to-rose-950/80 border-2 border-rose-600 flex items-center justify-between">
+        <div class="space-y-1">
+          <h3 class="text-2xl font-black text-white uppercase">🚨 MCI MODE ACTIVE</h3>
+          <p class="text-xs text-rose-200">20 casualties distributed with 3–5 min staggered arrival intervals across regional surge capacity.</p>
+        </div>
+        <button onclick="distributeMCI(true)" class="px-4 py-2.5 rounded-xl bg-rose-600 font-bold text-white text-xs font-mono">Re-solve MCI</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="p-6 rounded-2xl bg-slate-900 border border-rose-900/60 space-y-2">
+          <span class="text-xs font-mono text-rose-400 font-bold uppercase">Nearest-Hospital Baseline</span>
+          <h4 class="text-lg font-bold text-white">15 Patients to one ER (Overload ❌)</h4>
+          <p class="text-xs text-slate-300">All casualties rush to Hospital A, causing a 375% surge overload and 90-minute offload delays.</p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-900 border border-emerald-900/60 space-y-2">
+          <span class="text-xs font-mono text-emerald-400 font-bold uppercase">LifeRoute Balancer</span>
+          <h4 class="text-lg font-bold text-white">Spread within Capacity (Optimal ✅)</h4>
+          <p class="text-xs text-slate-300">20 casualties balanced across 6 hospitals within surge limits with 0 capacity violations.</p>
+        </div>
+      </div>
+
+      <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <h4 class="text-sm font-bold text-white font-mono uppercase">Hospital Surge Capacity vs Assigned Casualties</h4>
+        <div id="mciSurgeBarsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+      </div>
+
+      <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <h4 class="text-sm font-bold text-white font-mono uppercase">20-Casualty START Triage Queue</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+              <tr><th class="py-2 px-3">ID</th><th class="py-2 px-3">Triage</th><th class="py-2 px-3">Condition</th><th class="py-2 px-3">Assigned Hospital</th><th class="py-2 px-3">Arrival Window</th></tr>
+            </thead>
+            <tbody id="mciCasualtyTableBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: RESULTS -->
+  <section id="results" class="py-20 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-10">
+      <h2 class="text-3xl font-extrabold text-white text-center">Baseline vs. LifeRoute Performance</h2>
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+            <tr><th class="py-3 px-4">Metric</th><th class="py-3 px-4 text-rose-400">Baseline</th><th class="py-3 px-4 text-emerald-400">LifeRoute</th><th class="py-3 px-4 text-cyan-400">Improvement</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/80 text-slate-200">
+            <tr><td class="py-3 px-4 font-bold text-white">Average Response Time</td><td class="py-3 px-4 text-rose-400" id="resBaseAvg">23.2 min</td><td class="py-3 px-4 text-emerald-400" id="resLrAvg">11.4 min</td><td class="py-3 px-4 text-cyan-400 font-bold">50.8% Faster</td></tr>
+            <tr><td class="py-3 px-4 font-bold text-white">90th-Percentile Response Time (P90)</td><td class="py-3 px-4 text-rose-400" id="resBaseP90">45.0 min</td><td class="py-3 px-4 text-emerald-400" id="resLrP90">18.5 min</td><td class="py-3 px-4 text-cyan-400 font-bold">58.9% Reduction</td></tr>
+            <tr><td class="py-3 px-4 font-bold text-white">% Critical Patients Reaching Capable Hospital &le; 60m</td><td class="py-3 px-4 text-rose-400">62.5%</td><td class="py-3 px-4 text-emerald-400">100.0%</td><td class="py-3 px-4 text-cyan-400 font-bold">+37.5% Guarantee</td></tr>
+            <tr><td class="py-3 px-4 font-bold text-white">Hospital Overload Events</td><td class="py-3 px-4 text-rose-400">4 Occurrences</td><td class="py-3 px-4 text-emerald-400">0 Occurrences</td><td class="py-3 px-4 text-cyan-400 font-bold">100% Eliminated</td></tr>
+            <tr><td class="py-3 px-4 font-bold text-white">MCI Critical Patients Served in Time</td><td class="py-3 px-4 text-rose-400">40.0%</td><td class="py-3 px-4 text-emerald-400">100.0%</td><td class="py-3 px-4 text-cyan-400 font-bold">+60.0% Success</td></tr>
+          </tbody>
+        </table>
+        <div class="p-3 bg-slate-950 text-xs font-mono text-slate-400">* Simulated on mock data · Seed: <span id="resultsSeedDisplay">42</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6: HOW IT WORKS -->
+  <section id="how-it-works" class="py-20 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-10">
+      <h2 class="text-3xl font-extrabold text-white text-center">How LifeRoute Works</h2>
+      <div class="p-8 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-center">
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs"><div class="text-blue-400 font-bold">5 DATA STREAMS</div><div class="text-white mt-1">Telemetry Feeds</div></div>
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs"><div class="text-cyan-400 font-bold">TRIAGE</div><div class="text-white mt-1">ESI 1–5 Mapping</div></div>
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs"><div class="text-emerald-400 font-bold">HOSPITAL SCORER</div><div class="text-white mt-1">Multi-Objective Score</div></div>
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs"><div class="text-amber-400 font-bold">GLOBAL DISPATCHER</div><div class="text-white mt-1">Hungarian Solver</div></div>
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs"><div class="text-rose-400 font-bold">MCI & CAD</div><div class="text-white mt-1">Dashboard Output</div></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800 text-xs text-slate-400">
+          <div><b class="text-white block mb-1">Hard Capability Filters:</b> Lacks CT/Cath Lab or on diversion $\rightarrow$ Eliminated ($-\infty$).</div>
+          <div><b class="text-white block mb-1">Predicted Capacity at Arrival:</b> $Beds_{free} - Ambulances_{inbound}$ prevents saturation.</div>
+          <div><b class="text-white block mb-1">Instant Re-Planning & Overrides:</b> Recalculates in $<10\text{ ms}$ with full human override authority.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7: IMPACT AND SCALE -->
+  <section id="impact" class="py-20 border-b border-slate-800/80 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-6">
+      <h2 class="text-3xl font-extrabold text-white text-center">Impact & Scale</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
+        <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+          <div class="text-xl">🏛️</div>
+          <b class="text-white text-sm block">Fits Existing 112 Centers:</b>
+          <p>Operates as a non-intrusive decision-support layer alongside existing CAD legacy systems.</p>
+        </div>
+        <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+          <div class="text-xl">📈</div>
+          <b class="text-white text-sm block">Scales City to State:</b>
+          <p>$O(n^3)$ matching easily scales from single municipal fleet (8–50) to state-wide emergency coordination.</p>
+        </div>
+        <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+          <div class="text-xl">🚀</div>
+          <b class="text-white text-sm block">Strategic Roadmap:</b>
+          <p>Live traffic APIs, Hospital FHIR bed feeds, ML voice triage, Paramedic mobile terminal app.</p>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-900 border border-amber-500/40 rounded-xl text-xs font-mono text-amber-300">
+        ⚠️ <b>DISCLAIMER:</b> Decision support only; the licensed human dispatcher always decides.
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 8: FOOTER -->
+  <footer class="py-12 bg-slate-950 border-t border-slate-800 text-xs font-mono text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div><b class="text-white">LifeRoute Decision Support Core</b> · Not the nearest hospital. The right one.</div>
+      <div>Team: <b class="text-slate-300">Team LifeRoute (Harsha Vardhan & Team)</b> · Hackathon: <b class="text-slate-300">TECHFORGE 1.0 · ECE LIET</b></div>
+    </div>
+  </footer>
+
+  <!-- Override Modal -->
+  <div id="overrideModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-md w-full mx-4 space-y-4">
+      <h3 class="font-bold text-white text-base">Dispatcher Manual Override</h3>
+      <select id="overrideHospitalSelect" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white font-mono"></select>
+      <textarea id="overrideReasonInput" rows="2" placeholder="Clinical justification..." class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white font-mono"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeOverrideModal()" class="px-3 py-1.5 rounded bg-slate-800 text-xs text-slate-300 font-mono">Cancel</button>
+        <button onclick="submitDispatcherOverride()" class="px-3.5 py-1.5 rounded bg-blue-600 font-bold text-xs text-white font-mono">Confirm Override</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet & App Script -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
